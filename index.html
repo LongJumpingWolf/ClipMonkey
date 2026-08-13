@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClipMonkey</title>
+<link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48x48.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#050607">
+<meta name="msapplication-TileColor" content="#050607">
+<meta name="msapplication-TileImage" content="/icons/mstile-150x150.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --canvas: #050607;
+    --panel: #111214;
+    --panel-2: #1a1b1e;
+    --line: rgba(255,255,255,0.10);
+    --line-soft: rgba(255,255,255,0.06);
+    --bright: #f7f7f5;
+    --muted: #9a9a97;
+    --white: #ffffff;
+    --red: #d23030;
+    --red-bg: rgba(210,48,48,0.12);
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --serif: 'Fraunces', serif;
+    --sans: 'Inter', -apple-system, system-ui, sans-serif;
+    --radius: 9px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--canvas);
+    color: var(--bright);
+    font-family: var(--sans);
+  }
+  body {
+    display: flex;
+    justify-content: center;
+    padding: 48px 16px;
+  }
+  .app {
+    width: 100%;
+    max-width: 560px;
+  }
+  .frame {
+    background: linear-gradient(180deg, #0b0d10 0%, #050607 100%);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 28px 70px rgba(0,0,0,0.6);
+    padding: 26px 26px 22px;
+  }
+
+  /* ---------- Header ---------- */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .app-icon {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    border-radius: 9px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
+  }
+  .app-icon img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .titles .eyebrow {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    line-height: 1;
+    margin-bottom: 5px;
+  }
+  .titles h1 {
+    margin: 0;
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: -0.3px;
+    color: var(--bright);
+  }
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid transparent;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: var(--radius);
+    flex-shrink: 0;
+  }
+  .icon-btn svg { width: 18px; height: 18px; }
+  .icon-btn:hover {
+    background: var(--panel);
+    border-color: var(--line);
+    color: var(--bright);
+  }
+
+  /* ---------- Dropzone (primary action) ---------- */
+  .dropzone {
+    margin-top: 20px;
+    border: 1.5px dashed var(--line);
+    border-radius: var(--radius);
+    padding: 26px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--white);
+    background: var(--panel);
+  }
+  .dropzone .glyph {
+    width: 30px;
+    height: 30px;
+    margin: 0 auto 10px;
+    color: var(--bright);
+  }
+  .dropzone .glyph svg { width: 100%; height: 100%; }
+  .dropzone .headline {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--bright);
+    margin-bottom: 4px;
+  }
+  .dropzone .sub {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .dropzone .sub kbd {
+    font-family: var(--mono);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 11px;
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0 4px;
+  }
+  .action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 10px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 11.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: filter 0.15s, transform 0.05s, background 0.15s;
+  }
+  .action-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .action-btn:active:not(:disabled) { transform: translateY(1px); }
+  .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .action-download { background: var(--panel); color: var(--bright); }
+  .action-download:hover:not(:disabled) { background: var(--panel-2); }
+  .action-upload { background: var(--white); color: #0a0a0a; border-color: var(--white); }
+  .action-upload:hover:not(:disabled) { background: #e8e8e6; }
+
+  /* ---------- Status ---------- */
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    padding: 9px 12px;
+    border-radius: var(--radius);
+    margin: 12px 0 18px;
+    min-height: 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--bright);
+  }
+  .status .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .status.success { color: var(--white); }
+  .status.success .dot { background: var(--white); box-shadow: 0 0 6px rgba(255,255,255,0.6); }
+  .status.error { background: var(--red-bg); border-color: var(--red); color: #ff8f7a; }
+  .status.error .dot { background: var(--red); }
+  .status.busy .dot { background: var(--bright); animation: pulse 1s infinite ease-in-out; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* ---------- Log ---------- */
+  .log-section {
+    border-top: 1px solid var(--line-soft);
+    padding-top: 14px;
+  }
+  .log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .log-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .count-chip {
+    font-family: var(--mono);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 100px;
+  }
+  .log-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .copy-all-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--bright);
+    font-weight: 700;
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .copy-all-btn svg { width: 12px; height: 12px; }
+  .copy-all-btn:hover { background: var(--panel-2); border-color: var(--white); }
+  .icon-btn.danger:hover { background: var(--red-bg); border-color: var(--red); color: #ff8f7a; }
+
+  .log-list {
+    max-height: 420px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .log-item {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 10px;
+  }
+  .log-thumb-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 7px;
+  }
+  .seq-badge {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--bright);
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .thumb {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 6px;
+    background: var(--canvas);
+    border: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+  .name-input {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 2px;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: transparent;
+    color: var(--bright);
+  }
+  .name-input:hover { border-bottom-color: var(--muted); }
+  .name-input:focus {
+    outline: none;
+    border-bottom: 1px solid var(--white);
+  }
+  .log-link-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+  }
+  .log-link-row a {
+    font-family: var(--mono);
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 11px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .log-link-row a:hover { color: var(--bright); text-decoration: underline; }
+  .item-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .item-actions .icon-btn { padding: 5px; }
+  .item-actions .icon-btn svg { width: 14px; height: 14px; }
+  .log-item .time {
+    font-family: var(--mono);
+    color: var(--muted);
+    font-size: 9.5px;
+    margin-top: 6px;
+  }
+  .empty {
+    color: var(--muted);
+    font-size: 13px;
+    padding: 30px 10px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .empty svg { width: 24px; height: 24px; opacity: 0.5; }
+
+  /* ---------- Settings drawer ---------- */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .overlay.open { display: flex; }
+  .settings-panel {
+    width: 100%;
+    max-width: 420px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .settings-panel h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 17px;
+    margin: 0 0 4px;
+  }
+  .settings-panel .close-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .settings-panel h3 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 13.5px;
+    margin: 18px 0 4px;
+  }
+  .settings-panel p {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 4px 0;
+  }
+  .settings-panel a { color: var(--bright); text-decoration-color: var(--line); }
+  .settings-panel a:hover { text-decoration-color: var(--bright); }
+  .settings-panel input[type="text"] {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-family: var(--mono);
+    box-sizing: border-box;
+    margin-top: 8px;
+    background: var(--canvas);
+    color: var(--bright);
+  }
+  .settings-panel input[type="text"]:focus { outline: none; border-color: var(--white); }
+  .save-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .save-row button, .danger-row button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 11.5px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .save-row button { background: var(--white); color: #0a0a0a; }
+  .save-row button:hover { background: #e8e8e6; }
+  .danger-row { margin-top: 8px; }
+  .danger-row button { background: var(--red); color: white; }
+  .danger-row button:hover { filter: brightness(1.15); }
+  .settings-msg { font-size: 12px; color: var(--white); }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 10px; }
+
+  .footer {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 16px;
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="frame">
+    <div class="header">
+      <div class="header-left">
+        <div class="app-icon"><img src="/icons/icon-192.png" alt="ClipMonkey"></div>
+        <div class="titles">
+          <span class="eyebrow">Image Log</span>
+          <h1>ClipMonkey</h1>
+        </div>
+      </div>
+      <button id="settingsBtn" class="icon-btn" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+
+    <div id="dropzone" class="dropzone" tabindex="0">
+      <div class="glyph">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.6 4.4 0 0 1 0-9 5 4.5 0 0 1 9.6-1.6A4 3.5 0 0 1 21 11.5c0 2.5-2 3.5-3 3.5"/><path d="M12 12v7"/><path d="M9.5 14.5L12 12l2.5 2.5"/></svg>
+      </div>
+      <div class="headline">Paste or drop an image</div>
+      <div class="sub">Press <kbd>Ctrl</kbd>+<kbd>V</kbd> anywhere, or drag a file in</div>
+    </div>
+
+    <div class="actions">
+      <button id="downloadBtn" class="action-btn action-download">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+        Save local
+      </button>
+      <button id="uploadBtn" class="action-btn action-upload">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.6 4.4 0 0 1 0-9 5 4.5 0 0 1 9.6-1.6A4 3.5 0 0 1 21 11.5c0 2.5-2 3.5-3 3.5"/><path d="M12 12v7"/><path d="M9.5 14.5L12 12l2.5 2.5"/></svg>
+        Upload
+      </button>
+    </div>
+
+    <div id="status" class="status"><span class="dot"></span><span class="msg">Ready</span></div>
+
+    <div class="log-section">
+      <div class="log-header">
+        <div class="log-title">
+          Log
+          <span id="logCount" class="count-chip">0</span>
+        </div>
+        <div class="log-header-actions">
+          <button id="copyAllBtn" class="copy-all-btn" title="Copy every name and link as a numbered list">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h11"/><path d="M8 12h11"/><path d="M8 18h11"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+            Copy All
+          </button>
+          <button id="restoreBtn" class="icon-btn" title="Restore deleted entries" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+          </button>
+          <button id="exportBtn" class="icon-btn" title="Export all links as a backup file">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+          </button>
+          <button id="clearLogBtn" class="icon-btn danger" title="Clear log (moves to recovery list)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="logList" class="log-list"></div>
+    </div>
+  </div>
+  <div class="footer">clipmonkey · local-only storage · build 2026-08-11.1</div>
+</div>
+
+<div id="overlay" class="overlay">
+  <div class="settings-panel">
+    <div class="close-row">
+      <h2>Settings</h2>
+      <button id="closeSettingsBtn" class="icon-btn" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <h3>ImgBB API key (required)</h3>
+    <p>
+      1. Get a free key at <a href="https://api.imgbb.com/" target="_blank">api.imgbb.com</a> (sign in, then "Add API key")<br>
+      2. Paste it below and save.
+    </p>
+    <input type="text" id="apiKeyInput" placeholder="Paste your ImgBB API key here">
+    <div class="save-row">
+      <button id="saveApiKeyBtn">Save</button>
+      <span id="apiKeyMsg" class="settings-msg"></span>
+    </div>
+
+    <h3>Backups</h3>
+    <p>
+      Deleted entries move to a recovery list first, not straight to permanent deletion —
+      use ↺ Restore in the log if you clear something by mistake. Use 📤 Export any time
+      to save your full link list as a file, independent of this browser.
+    </p>
+
+    <h3>Danger zone</h3>
+    <p>Clears the visible log. Entries move to the recovery list, so ↺ Restore still works after.</p>
+    <div class="danger-row">
+      <button id="clearFromSettingsBtn">Clear Log</button>
+      <span id="clearMsg" class="settings-msg"></span>
+    </div>
+
+    <p style="margin-top:16px;font-size:11.5px;">Everything here is stored only in this browser's local storage — nothing is sent anywhere except the images you choose to upload.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  const KEY_LOG = 'clipmonkey_history';
+  const KEY_TRASH = 'clipmonkey_trash';
+  const KEY_COUNT = 'clipmonkey_uploadCount';
+  const KEY_APIKEY = 'clipmonkey_imgbbApiKey';
+
+  // ---------- localStorage helpers ----------
+  function getJSON(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw === null ? fallback : JSON.parse(raw);
+    } catch (e) {
+      return fallback;
+    }
+  }
+  function setJSON(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+  function getHistory() { return getJSON(KEY_LOG, []); }
+  function setHistory(h) { setJSON(KEY_LOG, h); }
+  function getTrash() { return getJSON(KEY_TRASH, []); }
+  function setTrash(t) { setJSON(KEY_TRASH, t); }
+  function getUploadCount() { return getJSON(KEY_COUNT, 0); }
+  function setUploadCount(n) { setJSON(KEY_COUNT, n); }
+  function getApiKey() { return localStorage.getItem(KEY_APIKEY) || ''; }
+  function setApiKey(v) { localStorage.setItem(KEY_APIKEY, v); }
+
+  // ---------- DOM refs ----------
+  const dropzone = document.getElementById('dropzone');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const statusEl = document.getElementById('status');
+  const statusMsg = statusEl.querySelector('.msg');
+  const logList = document.getElementById('logList');
+  const logCount = document.getElementById('logCount');
+  const copyAllBtn = document.getElementById('copyAllBtn');
+  const restoreBtn = document.getElementById('restoreBtn');
+  const exportBtn = document.getElementById('exportBtn');
+  const clearLogBtn = document.getElementById('clearLogBtn');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const overlay = document.getElementById('overlay');
+  const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+  const apiKeyMsg = document.getElementById('apiKeyMsg');
+  const clearFromSettingsBtn = document.getElementById('clearFromSettingsBtn');
+  const clearMsg = document.getElementById('clearMsg');
+
+  const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  const ICON_LINK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.5-1.5"/></svg>';
+  const ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+  const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>';
+
+  function escapeAttr(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function defaultName(item, idx) {
+    return `Image ${item.seq ?? (idx + 1)}`;
+  }
+  function nameFor(item, idx) {
+    return item.name && item.name.trim() ? item.name.trim() : defaultName(item, idx);
+  }
+  function snippetFor(item, idx) {
+    const num = item.seq ?? (idx + 1);
+    return `${num}. ${nameFor(item, idx)} - ${item.url}`;
+  }
+
+  let currentSnapshot = [];
+
+  function buildFullSnippetText(list) {
+    const sorted = [...list].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
+    return sorted.map((item, idx) => snippetFor(item, idx)).join('\n');
+  }
+  async function backupFullListToClipboard(list) {
+    if (!list || list.length === 0) return;
+    try {
+      await navigator.clipboard.writeText(buildFullSnippetText(list));
+    } catch (e) { /* best-effort */ }
+  }
+
+  function focusNewestNameInput() {
+    const input = logList.querySelector('.name-input');
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }
+
+  // ---------- Render ----------
+  function renderLog() {
+    const history = getHistory();
+    const trash = getTrash();
+    currentSnapshot = history;
+    logCount.textContent = history.length;
+
+    restoreBtn.style.display = trash.length > 0 ? '' : 'none';
+    if (trash.length > 0) {
+      restoreBtn.title = `Restore ${trash.length} deleted entr${trash.length === 1 ? 'y' : 'ies'}`;
+    }
+
+    if (history.length === 0) {
+      logList.innerHTML = `
+        <div class="empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+          No images logged yet
+        </div>`;
+      return;
+    }
+
+    logList.innerHTML = history.map((item, idx) => {
+      const seq = item.seq ?? (idx + 1);
+      return `
+        <div class="log-item">
+          <div class="log-thumb-row">
+            <span class="seq-badge">${seq}</span>
+            <img class="thumb" src="${escapeAttr(item.url)}" loading="lazy" alt="">
+            <input class="name-input" data-index="${idx}" value="${escapeAttr(nameFor(item, idx))}" placeholder="Name this image...">
+          </div>
+          <div class="log-link-row">
+            <a href="${escapeAttr(item.url)}" target="_blank" rel="noopener">${item.url}</a>
+            <div class="item-actions">
+              <button class="icon-btn copy-snippet-btn" data-index="${idx}" title="Copy as numbered snippet">${ICON_COPY}</button>
+              <button class="icon-btn copy-link-btn" data-index="${idx}" title="Copy link only">${ICON_LINK}</button>
+              <button class="icon-btn danger delete-item-btn" data-index="${idx}" title="Delete this entry">${ICON_TRASH}</button>
+            </div>
+          </div>
+          <div class="time">${new Date(item.timestamp).toLocaleString()}</div>
+        </div>
+      `;
+    }).join('');
+
+    logList.querySelectorAll('.name-input').forEach(input => {
+      input.addEventListener('change', (e) => {
+        const idx = Number(e.target.dataset.index);
+        const h = getHistory();
+        if (h[idx]) {
+          h[idx].name = e.target.value.trim();
+          setHistory(h);
+        }
+      });
+    });
+
+    logList.querySelectorAll('.copy-snippet-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const el = e.currentTarget;
+        const idx = Number(el.dataset.index);
+        const h = getHistory();
+        const item = h[idx];
+        if (!item) return;
+        await navigator.clipboard.writeText(snippetFor(item, idx));
+        flashButton(el);
+      });
+    });
+
+    logList.querySelectorAll('.copy-link-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const el = e.currentTarget;
+        const idx = Number(el.dataset.index);
+        const h = getHistory();
+        const item = h[idx];
+        if (!item) return;
+        await navigator.clipboard.writeText(item.url);
+        flashButton(el);
+      });
+    });
+
+    logList.querySelectorAll('.delete-item-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = Number(e.currentTarget.dataset.index);
+        const h = getHistory();
+        const trashList = getTrash();
+        if (idx < 0 || idx >= h.length) return;
+        const [removed] = h.splice(idx, 1);
+        const newTrash = [{ ...removed, deletedAt: Date.now() }, ...trashList].slice(0, 100);
+        setHistory(h);
+        setTrash(newTrash);
+        renderLog();
+        setStatus('Deleted — tap ↺ Restore if that was a mistake.', '');
+      });
+    });
+  }
+
+  function flashButton(btn) {
+    const original = btn.innerHTML;
+    btn.innerHTML = ICON_CHECK;
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.innerHTML = original;
+      btn.disabled = false;
+    }, 900);
+  }
+
+  function setStatus(msg, type) {
+    statusMsg.textContent = msg;
+    statusEl.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  // ---------- Copy All / Restore / Export / Clear ----------
+  copyAllBtn.addEventListener('click', async () => {
+    const h = getHistory();
+    if (h.length === 0) {
+      setStatus('Nothing to copy yet.', '');
+      return;
+    }
+    const sorted = [...h].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
+    const text = sorted.map((item, idx) => snippetFor(item, idx)).join('\n');
+    await navigator.clipboard.writeText(text);
+    const original = copyAllBtn.innerHTML;
+    copyAllBtn.innerHTML = `${ICON_CHECK} Copied`;
+    setTimeout(() => { copyAllBtn.innerHTML = original; }, 1100);
+  });
+
+  restoreBtn.addEventListener('click', () => {
+    const h = getHistory();
+    const trash = getTrash();
+    if (trash.length === 0) return;
+    const merged = [...h, ...trash.map(({ deletedAt, ...rest }) => rest)];
+    const seen = new Set();
+    const deduped = merged.filter(item => {
+      const key = item.seq ?? item.url;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).sort((a, b) => (b.seq ?? 0) - (a.seq ?? 0));
+    setHistory(deduped);
+    setTrash([]);
+    renderLog();
+    setStatus(`Restored ${trash.length} entr${trash.length === 1 ? 'y' : 'ies'}.`, 'success');
+  });
+
+  exportBtn.addEventListener('click', () => {
+    const h = getHistory();
+    if (h.length === 0) {
+      setStatus('Nothing to export yet.', '');
+      return;
+    }
+    const sorted = [...h].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
+    const lines = sorted.map((item, idx) => snippetFor(item, idx));
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      count: sorted.length,
+      entries: sorted,
+      asText: lines.join('\n')
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `clipmonkey-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setStatus('Backup file saved.', 'success');
+  });
+
+  function clearLog() {
+    const h = getHistory();
+    const trash = getTrash();
+    if (h.length === 0) {
+      setStatus('Nothing to clear.', '');
+      return false;
+    }
+    const deletedAt = Date.now();
+    const newTrash = [...h.map(item => ({ ...item, deletedAt })), ...trash].slice(0, 100);
+    setHistory([]);
+    setTrash(newTrash);
+    renderLog();
+    setStatus('Log cleared — tap ↺ Restore if that was a mistake.', '');
+    return true;
+  }
+  clearLogBtn.addEventListener('click', async () => {
+    await backupFullListToClipboard(currentSnapshot);
+    clearLog();
+  });
+  clearFromSettingsBtn.addEventListener('click', async () => {
+    await backupFullListToClipboard(currentSnapshot);
+    const cleared = clearLog();
+    clearMsg.textContent = cleared ? '✅ Cleared — moved to recovery list.' : 'Nothing to clear.';
+    setTimeout(() => { clearMsg.textContent = ''; }, 3000);
+  });
+
+  // ---------- Settings drawer ----------
+  function openSettings() {
+    apiKeyInput.value = getApiKey();
+    overlay.classList.add('open');
+  }
+  function closeSettings() {
+    overlay.classList.remove('open');
+  }
+  settingsBtn.addEventListener('click', openSettings);
+  closeSettingsBtn.addEventListener('click', closeSettings);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeSettings();
+  });
+  saveApiKeyBtn.addEventListener('click', () => {
+    setApiKey(apiKeyInput.value.trim());
+    apiKeyMsg.textContent = apiKeyInput.value.trim() ? '✅ Saved!' : '⚠️ Cleared — uploads will fail until you add a key.';
+    setTimeout(() => { apiKeyMsg.textContent = ''; }, 3000);
+  });
+
+  // ---------- Image validation ----------
+  async function verifyImageBlob(blob) {
+    if (!blob || blob.size === 0) {
+      throw new Error('The captured image is empty (0 bytes) — try copying or dropping it again.');
+    }
+    const url = URL.createObjectURL(blob);
+    try {
+      await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+            reject(new Error('The captured image failed to decode — try copying or dropping it again.'));
+          } else {
+            resolve();
+          }
+        };
+        img.onerror = () => reject(new Error('The captured image is corrupted — try copying or dropping it again.'));
+        img.src = url;
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  // ---------- ImgBB upload ----------
+  async function uploadToImgbb(blob, apiKey) {
+    const ext = blob.type.split('/')[1] || 'png';
+    const filename = `clipmonkey_${Date.now()}.${ext}`;
+    const formData = new FormData();
+    formData.append('image', blob, filename);
+
+    let uploadRes;
+    try {
+      uploadRes = await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST',
+        body: formData
+      });
+    } catch (networkErr) {
+      throw new Error('Could not reach ImgBB — check your internet connection. (' + networkErr.message + ')');
+    }
+
+    let json;
+    try {
+      json = await uploadRes.json();
+    } catch (parseErr) {
+      throw new Error(`ImgBB returned an unreadable response (HTTP ${uploadRes.status}).`);
+    }
+
+    if (json.success && json.data && json.data.url) {
+      return json.data.url;
+    }
+    const reason = json.error?.message || `HTTP ${uploadRes.status}`;
+    throw new Error('ImgBB rejected the upload: ' + reason);
+  }
+
+  async function saveToHistory(url) {
+    const history = getHistory();
+    const seq = getUploadCount() + 1;
+    history.unshift({ url, timestamp: Date.now(), seq, name: '' });
+    setHistory(history);
+    setUploadCount(seq);
+  }
+
+  async function uploadBlob(blob) {
+    uploadBtn.disabled = true;
+    try {
+      setStatus('Checking image…', 'busy');
+      await verifyImageBlob(blob);
+
+      const apiKey = getApiKey();
+      if (!apiKey) {
+        throw new Error('No ImgBB API key set — add one via the ⚙ settings icon first.');
+      }
+
+      setStatus('Uploading…', 'busy');
+      const url = await uploadToImgbb(blob, apiKey);
+      await saveToHistory(url);
+
+      renderLog();
+      await backupFullListToClipboard(currentSnapshot);
+      setStatus('Uploaded! Full list copied to clipboard as backup.', 'success');
+      focusNewestNameInput();
+    } catch (err) {
+      setStatus(err.message, 'error');
+    } finally {
+      uploadBtn.disabled = false;
+    }
+  }
+
+  // ---------- Clipboard read ----------
+  async function getImageFromClipboard() {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      for (const type of ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/bmp']) {
+        if (item.types.includes(type)) {
+          return await item.getType(type);
+        }
+      }
+    }
+    throw new Error('No image found in clipboard. Copy an image first.');
+  }
+
+  downloadBtn.addEventListener('click', async () => {
+    try {
+      downloadBtn.disabled = true;
+      setStatus('Reading clipboard…', 'busy');
+      const blob = await getImageFromClipboard();
+      const url = URL.createObjectURL(blob);
+      const ext = blob.type.split('/')[1] || 'png';
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `clipmonkey_${Date.now()}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setStatus('Saved locally.', 'success');
+    } catch (err) {
+      setStatus(err.message, 'error');
+    } finally {
+      downloadBtn.disabled = false;
+    }
+  });
+
+  uploadBtn.addEventListener('click', async () => {
+    try {
+      setStatus('Reading clipboard…', 'busy');
+      const blob = await getImageFromClipboard();
+      await uploadBlob(blob);
+    } catch (err) {
+      setStatus(err.message, 'error');
+    }
+  });
+
+  dropzone.addEventListener('click', () => uploadBtn.click());
+
+  // ---------- Global paste-anywhere ----------
+  document.addEventListener('paste', async (e) => {
+    if (overlay.classList.contains('open')) return; // don't hijack paste into settings fields
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const blob = item.getAsFile();
+        await uploadBlob(blob);
+        return;
+      }
+    }
+  });
+
+  // ---------- Drag & drop ----------
+  let dragCounter = 0;
+  ['dragover'].forEach(evt => document.addEventListener(evt, (e) => e.preventDefault()));
+  document.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    dropzone.classList.add('drag-over');
+  });
+  document.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      dropzone.classList.remove('drag-over');
+    }
+  });
+  document.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    dropzone.classList.remove('drag-over');
+
+    const dt = e.dataTransfer;
+    let blob = null;
+
+    if (dt.files && dt.files.length > 0 && dt.files[0].type.startsWith('image/')) {
+      blob = dt.files[0];
+    }
+
+    if (!blob) {
+      const uri = dt.getData('text/uri-list') || dt.getData('text/plain');
+      if (uri && /^https?:\/\//i.test(uri.trim())) {
+        try {
+          setStatus('Fetching dropped image…', 'busy');
+          const resp = await fetch(uri.trim());
+          const fetchedBlob = await resp.blob();
+          if (fetchedBlob.type.startsWith('image/')) blob = fetchedBlob;
+        } catch (err) {
+          // Likely CORS-blocked on the source site — handled by the message below.
+        }
+      }
+    }
+
+    if (!blob) {
+      setStatus('Could not read the dropped image (often blocked by the source site). Try copying it and pasting instead.', 'error');
+      return;
+    }
+
+    await uploadBlob(blob);
+  });
+
+  // ---------- Init ----------
+  renderLog();
+  if (!getApiKey()) {
+    setStatus('⚠️ Add your ImgBB API key via ⚙ settings before uploading.', 'error');
+  }
+})();
+</script>
+</body>
+</html>
