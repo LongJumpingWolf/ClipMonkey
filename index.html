@@ -501,12 +501,12 @@
 
     <div class="actions">
       <button id="downloadBtn" class="action-btn action-download">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
-        Save local
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11v6"/><path d="M9.5 14.5L12 17l2.5-2.5"/></svg>
+        Paste &amp; Save
       </button>
       <button id="uploadBtn" class="action-btn action-upload">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.6 4.4 0 0 1 0-9 5 4.5 0 0 1 9.6-1.6A4 3.5 0 0 1 21 11.5c0 2.5-2 3.5-3 3.5"/><path d="M12 12v7"/><path d="M9.5 14.5L12 12l2.5 2.5"/></svg>
-        Upload
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 17v-6"/><path d="M9.5 13.5L12 11l2.5 2.5"/></svg>
+        Paste &amp; Upload
       </button>
     </div>
 
@@ -560,6 +560,14 @@
       <span id="apiKeyMsg" class="settings-msg"></span>
     </div>
 
+    <h3>Download folder</h3>
+    <p id="folderStatus">Not set — "Paste &amp; Save" will use your browser's normal download prompt.</p>
+    <div class="save-row">
+      <button id="chooseFolderBtn">Choose Folder</button>
+      <button id="clearFolderBtn" style="background:var(--panel-2);color:var(--bright);display:none;">Reset</button>
+    </div>
+    <p style="font-size:11px;">Chrome/Edge only — picks a folder once, then every "Paste &amp; Save" writes straight into it with no dialog. Not supported in Firefox/Safari; those browsers just use the normal download prompt.</p>
+
     <h3>Backups</h3>
     <p>
       Deleted entries move to a recovery list first, not straight to permanent deletion —
@@ -606,6 +614,89 @@
   function getApiKey() { return localStorage.getItem(KEY_APIKEY) || ''; }
   function setApiKey(v) { localStorage.setItem(KEY_APIKEY, v); }
 
+  // ---------- Download-folder handle (IndexedDB, since directory handles
+  // aren't plain strings and can't live in localStorage) ----------
+  const FS_SUPPORTED = 'showDirectoryPicker' in window;
+  const IDB_NAME = 'clipmonkey_fs';
+  const IDB_STORE = 'handles';
+  const IDB_KEY = 'downloadDir';
+
+  function openHandleDb() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbSetHandle(handle) {
+    const db = await openHandleDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(handle, IDB_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function idbGetHandle() {
+    const db = await openHandleDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbClearHandle() {
+    const db = await openHandleDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(IDB_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function ensureFolderPermission(handle) {
+    const opts = { mode: 'readwrite' };
+    if ((await handle.queryPermission(opts)) === 'granted') return true;
+    if ((await handle.requestPermission(opts)) === 'granted') return true;
+    return false;
+  }
+
+  // Returns true if it wrote the file directly into the chosen folder
+  // (no dialog). Returns false if no folder is set, so the caller should
+  // fall back to a normal browser download.
+  async function saveBlobToChosenFolder(blob, filename) {
+    if (!FS_SUPPORTED) return false;
+    const handle = await idbGetHandle();
+    if (!handle) return false;
+    const ok = await ensureFolderPermission(handle);
+    if (!ok) throw new Error('Permission to write to the chosen folder was denied.');
+    const fileHandle = await handle.getFileHandle(filename, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return true;
+  }
+
+  async function refreshFolderStatusUI() {
+    if (!FS_SUPPORTED) {
+      folderStatus.textContent = 'Not supported in this browser — use Chrome or Edge for direct-to-folder saving.';
+      chooseFolderBtn.disabled = true;
+      clearFolderBtn.style.display = 'none';
+      return;
+    }
+    const handle = await idbGetHandle();
+    if (handle) {
+      folderStatus.textContent = `Saving straight to: "${handle.name}" — no dialog.`;
+      clearFolderBtn.style.display = '';
+    } else {
+      folderStatus.textContent = 'Not set — "Paste & Save" will use your browser\'s normal download prompt.';
+      clearFolderBtn.style.display = 'none';
+    }
+  }
+
   // ---------- DOM refs ----------
   const dropzone = document.getElementById('dropzone');
   const downloadBtn = document.getElementById('downloadBtn');
@@ -626,6 +717,9 @@
   const apiKeyMsg = document.getElementById('apiKeyMsg');
   const clearFromSettingsBtn = document.getElementById('clearFromSettingsBtn');
   const clearMsg = document.getElementById('clearMsg');
+  const folderStatus = document.getElementById('folderStatus');
+  const chooseFolderBtn = document.getElementById('chooseFolderBtn');
+  const clearFolderBtn = document.getElementById('clearFolderBtn');
 
   const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
   const ICON_LINK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.5-1.5"/></svg>';
@@ -869,6 +963,7 @@
   // ---------- Settings drawer ----------
   function openSettings() {
     apiKeyInput.value = getApiKey();
+    refreshFolderStatusUI();
     overlay.classList.add('open');
   }
   function closeSettings() {
@@ -883,6 +978,27 @@
     setApiKey(apiKeyInput.value.trim());
     apiKeyMsg.textContent = apiKeyInput.value.trim() ? '✅ Saved!' : '⚠️ Cleared — uploads will fail until you add a key.';
     setTimeout(() => { apiKeyMsg.textContent = ''; }, 3000);
+  });
+
+  chooseFolderBtn.addEventListener('click', async () => {
+    if (!FS_SUPPORTED) return;
+    try {
+      const handle = await window.showDirectoryPicker();
+      const ok = await ensureFolderPermission(handle);
+      if (!ok) {
+        folderStatus.textContent = 'Permission denied — folder not saved.';
+        return;
+      }
+      await idbSetHandle(handle);
+      await refreshFolderStatusUI();
+    } catch (err) {
+      // User cancelled the picker — not an error, just no-op.
+    }
+  });
+
+  clearFolderBtn.addEventListener('click', async () => {
+    await idbClearHandle();
+    await refreshFolderStatusUI();
   });
 
   // ---------- Image validation ----------
@@ -992,16 +1108,23 @@
       downloadBtn.disabled = true;
       setStatus('Reading clipboard…', 'busy');
       const blob = await getImageFromClipboard();
-      const url = URL.createObjectURL(blob);
       const ext = blob.type.split('/')[1] || 'png';
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `clipmonkey_${Date.now()}.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      setStatus('Saved locally.', 'success');
+      const filename = `clipmonkey_${Date.now()}.${ext}`;
+
+      const savedDirectly = await saveBlobToChosenFolder(blob, filename);
+      if (savedDirectly) {
+        setStatus('Saved to your chosen folder — no dialog needed.', 'success');
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setStatus('Saved locally.', 'success');
+      }
     } catch (err) {
       setStatus(err.message, 'error');
     } finally {
